@@ -193,6 +193,7 @@ void parsepositions(ucharbuf &p)
             d->jumpd = (f & (1 << 8)) ? true : false; // FIXME
             d->onfloor = f & (1 << 7) ? true : false;
             d->onladder = ft == 1;
+            d->sprinting = (f & (1 << 11)) != 0;
             d->last_pos = totalmillis;
             updatecrouch(d, ft == 2);
             updateplayerpos(d);

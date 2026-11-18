@@ -447,7 +447,9 @@ void moveplayer(physent *pl, int moveres, bool local, int curtime)
 
         // crouch transition is asymptotic, so allow jumping as soon as the player is *mostly* uncrouched
         const bool crouching = pl->crouching || (pl->eyeheight < pl->maxeyeheight - 0.5f && pl->eyeheight > 1.1f);
-        const float speed = curtime/(water ? 2000.0f : 1000.0f)*pl->maxspeed*(crouching && pl->state != CS_EDITING ? chspeed : 1.0f)*(pl==player1 && isfly ? flyspeed : 1.0f);
+        const bool sprinting = pl == player1 && player1->sprinting && pl->state == CS_ALIVE && !crouching && !water && !pl->onladder;
+        const float sprintfactor = sprinting ? 1.5f : 1.0f;
+        const float speed = curtime/(water ? 2000.0f : 1000.0f)*pl->maxspeed*(crouching && pl->state != CS_EDITING ? chspeed : 1.0f)*(pl==player1 && isfly ? flyspeed : 1.0f)*sprintfactor;
         const float friction = water ? 20.0f : (pl->onfloor || isfly ? 6.0f : (pl->onladder ? 1.5f : 30.0f));
         const float fpsfric = max(friction/curtime*20.0f, 1.0f);
 
@@ -892,6 +894,11 @@ void crouch(bool on)
     player1->trycrouch = on;
 }
 
+void sprint(bool on)
+{
+    player1->sprinting = on && player1->state == CS_ALIVE && !player1->crouching;
+}
+
 COMMAND(backward, "d");
 COMMAND(forward, "d");
 COMMAND(left, "d");
@@ -899,6 +906,7 @@ COMMAND(right, "d");
 COMMANDN(jump, jumpn, "d");
 COMMAND(attack, "d");
 COMMAND(crouch, "d");
+COMMAND(sprint, "d");
 
 void fixcamerarange(physent *cam)
 {

@@ -407,7 +407,7 @@ void c2sinfo(playerent *d)                  // send update to the server
             dy = (int)floorf(d->vel.y*DVELF + 0.5f),
             dz = (int)floorf(d->vel.z*DVELF + 0.5f);
         int f = (d->strafe + 4 + d->move * 3 + (d->onladder ? 9 : 0) + (d->crouching ? 18 : 0))     // pack 6 bit into 5 with ternary logic :)
-                 | (((int)d->scoping)<<5) | ((d->lifesequence&1)<<6) | (((int)d->onfloor)<<7) | (((int)d->jumpd)<<8) | (((int)(dx||dy||dz))<<9) | (zsign << 10);  // number of used bits: FLAGBITS
+                 | (((int)d->scoping)<<5) | ((d->lifesequence&1)<<6) | (((int)d->onfloor)<<7) | (((int)d->jumpd)<<8) | (((int)(dx||dy||dz))<<9) | (zsign << 10) | (((int)(d->sprinting && d->state == CS_ALIVE && !d->crouching))<<11);;  // number of used bits: FLAGBITS
         int usefactor = sfactor < 7 ? 7 : sfactor;
         if(zsign) z = -z;
         if(cn >= 0 && cn < 32 &&
