@@ -166,6 +166,7 @@ extern keym *findbindc(int code);
 // menus
 extern void rendermenu();
 extern bool menuvisible();
+extern void menumousemove(int x, int y);
 extern void menureset(void *menu);
 extern void menuitemmanual(void *menu, char *text, char *action = NULL, color *bgcolor = NULL, const char *desc = NULL);
 extern void menuimagemanual(void *menu, const char *filename1, const char *filename2, char *text, char *action = NULL, color *bgcolor = NULL, const char *desc = NULL);
@@ -228,6 +229,7 @@ struct gmenu
     const char *name, *title, *header, *footer;
     vector<mitem *> items;
     int menusel, menuselinit;
+    int mousex, mousey, mousew, mousestep, mouseoffset, mousecount;
     bool allowinput, inited, hotkeys, forwardkeys;
     void (__cdecl *refreshfunc)(void *, bool);
     bool (__cdecl *keyfunc)(void *, int, bool);
@@ -245,7 +247,8 @@ struct gmenu
     char *previewtexture, *previewtexturetitle;
     mdirlist *dirlist;
 
-    gmenu() : name(NULL), title(NULL), header(NULL), footer(NULL), menuselinit(-1), initaction(NULL), usefont(NULL),
+    gmenu() : name(NULL), title(NULL), header(NULL), footer(NULL), menuselinit(-1), mousex(0), mousey(0), mousew(0), 
+              mousestep(0), mouseoffset(0), mousecount(0), initaction(NULL), usefont(NULL),
               allowblink(false), persistentselection(false), synctabstops(false), hasdesc(false), headfootheap(false),
               mdl(NULL), footlen(0), xoffs(0), yoffs(0), previewtexture(NULL), previewtexturetitle(NULL), dirlist(NULL) {}
     virtual ~gmenu()

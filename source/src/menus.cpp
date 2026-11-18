@@ -125,6 +125,28 @@ void menuselect(void *menu, int sel)
     }
 }
 
+void menumousemove(int x, int y)
+{
+    if(!curmenu || !curmenu->allowinput) return;
+
+    gmenu &m = *curmenu;
+
+    if(x < m.mousex || x > m.mousex + m.mousew) return;
+
+    loopi(m.mousecount)
+    {
+        int item = m.mouseoffset + i;
+        int itemy = m.mousey + i * m.mousestep;
+
+        if(y >= itemy && y < itemy + FONTH)
+        {
+            if(m.items.inrange(item) && !m.items[item]->greyedout)
+                menuselect(&m, item);
+            return;
+        }
+    }
+}
+
 void drawarrow(int dir, int x, int y, int size, float r = 1.0f, float g = 1.0f, float b = 1.0f)
 {
     glDisable(GL_BLEND);
@@ -1514,6 +1536,14 @@ void gmenu::render()
     }
     draw_text(t, x, y);
     y += step*2;
+
+    mousex = x;
+    mousey = y;
+    mousew = w;
+    mousestep = step;
+    mouseoffset = offset;
+    mousecount = cdisp;
+
     loopj(cdisp)
     {
         items[offset+j]->render(x, y, w);

@@ -967,11 +967,15 @@ void checkinput()
                     resetmousemotion();
                     tdx+=dx;tdy+=dy;
                 }
+                else if(menuvisible())
+                {
+                    menumousemove(event.motion.x * (2 * VIRTW) / screenw, event.motion.y * (2 * VIRTH) / screenh);
+                }
                 else if (shouldgrab) inputgrab(grabinput = true);
                 break;
 
             case SDL_MOUSEBUTTONDOWN:
-                if(!grabinput) // click-to-grab
+                if(!grabinput && !menuvisible()) // click-to-grab
                 {
                     EVENTDEBUG(concatformatstring(eb, "(SDL_MOUSEBUTTONDOWN) button %d, state %d, clicks %d, x %d, y %d", event.button.button, event.button.state, event.button.clicks, event.button.x, event.button.y));
                     inputgrab(grabinput = true);
