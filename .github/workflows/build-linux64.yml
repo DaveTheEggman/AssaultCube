@@ -14,10 +14,10 @@ on:
 jobs:
   linux64:
     name: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - name: checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: setup libraries
         run: |
@@ -56,7 +56,7 @@ jobs:
         shell: bash
 
       - name: upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linux64-binaries
           path: dist/
