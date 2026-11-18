@@ -675,13 +675,28 @@ void audiomanager::updateaudio()
     }
 
     // listener
-    vec o[2];
-    o[0].x = (float)(cosf(RAD*(camera1->yaw-90)));
-    o[0].y = (float)(sinf(RAD*(camera1->yaw-90)));
-    o[0].z = 0.0f;
-    o[1].x = o[1].y = 0.0f;
-    o[1].z = -1.0f;
-    alListenerfv(AL_ORIENTATION, (ALfloat *) &o);
+    float pitch = -camera1->pitch * RAD;
+    float yaw = (camera1->yaw - 90.0f) * RAD;
+    float roll = camera1->roll * RAD;
+
+    float sin_pitch = sinf(pitch);
+    float sin_yaw = sinf(yaw);
+    float sin_roll = sinf(roll);
+    float cos_pitch = cosf(pitch);
+    float cos_yaw = cosf(yaw);
+    float cos_roll = cosf(roll);
+
+    ALfloat orient[6] =
+    {
+        cos_pitch * cos_yaw,
+        cos_pitch * sin_yaw,
+        -sin_pitch,
+        cos_roll * sin_pitch * cos_yaw + sin_roll * sin_yaw,
+        cos_roll * sin_pitch * sin_yaw - sin_roll * cos_yaw,
+        cos_roll * cos_pitch
+    };
+
+    alListenerfv(AL_ORIENTATION, orient);
     alListenerfv(AL_POSITION, (ALfloat *) &camera1->o);
 
     alcProcessContext(context);
