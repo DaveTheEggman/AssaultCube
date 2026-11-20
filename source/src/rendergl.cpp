@@ -135,6 +135,8 @@ void gl_init(int w, int h, int depth, int fsaa)
     glEnable(GL_DEPTH_TEST);
     glShadeModel(GL_SMOOTH);
 
+    if(fsaa > 0) glEnable(GL_MULTISAMPLE);
+    else glDisable(GL_MULTISAMPLE);
 
     glEnable(GL_FOG);
     glFogi(GL_FOG_MODE, GL_LINEAR);

@@ -102,7 +102,7 @@ VAR(screenh, 1, 0, 0);
 VARF(scr_w, SCR_MINW, -1, SCR_MAXW, initwarning("screen resolution")); // screen or window resolution, except for "fullscreen desktop" mode
 VARF(scr_h, SCR_MINH, -1, SCR_MAXH, initwarning("screen resolution"));
 VARF(depthbits, 0, 0, 32, initwarning("depth-buffer precision"));
-VARF(stencilbits, 0, 0, 32, initwarning("stencil-buffer precision"));
+VARF(stencilbits, 8, 0, 32, initwarning("stencil-buffer precision"));
 VARF(fsaa, -1, -1, 16, initwarning("anti-aliasing"));
 VARF(vsync, -1, -1, 1, initwarning("vertical sync"));
 
@@ -653,7 +653,7 @@ void setupscreen(int &useddepthbits, int &usedfsaa)
     inputgrab(grabinput = fullscreen ? true : false);
 
     useddepthbits = config&1 ? depthbits : 0;
-    usedfsaa = config&2 ? fsaa : 0;
+    usedfsaa = config&4 ? fsaa : 0;
 }
 
 extern int hirestextures;
