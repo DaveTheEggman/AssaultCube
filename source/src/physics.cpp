@@ -445,11 +445,27 @@ void moveplayer(physent *pl, int moveres, bool local, int curtime)
 
         float chspeed = (pl->onfloor || pl->onladder || !pl->crouchedinair) ? 0.4f : 1.0f;
 
+        if(pl == player1 && player1->sliding && (lastmillis - player1->slidestart >= 800 || !pl->trycrouch || !pl->onfloor || water || pl->onladder))
+        {
+            player1->sliding = false;
+        }
+
+        if(pl == player1 && pl->state == CS_ALIVE && player1->sprinting && pl->trycrouch && !player1->sliding && !player1->slideused && pl->onfloor && !water && !pl->onladder && pl->vel.magnitudexy() > 0.5f)
+        {
+            player1->sliding = true;
+            player1->slideused = true;
+            player1->slidestart = lastmillis;
+
+            pl->vel.x *= 1.5f;
+            pl->vel.y *= 1.5f;
+        }
+
+        const bool sliding = pl == player1 && player1->sliding;
         // crouch transition is asymptotic, so allow jumping as soon as the player is *mostly* uncrouched
         const bool crouching = pl->crouching || (pl->eyeheight < pl->maxeyeheight - 0.5f && pl->eyeheight > 1.1f);
         const bool sprinting = pl == player1 && player1->sprinting && pl->state == CS_ALIVE && !crouching && !water && !pl->onladder;
-        const float sprintfactor = sprinting ? 1.5f : 1.0f;
-        const float speed = curtime/(water ? 2000.0f : 1000.0f)*pl->maxspeed*(crouching && pl->state != CS_EDITING ? chspeed : 1.0f)*(pl==player1 && isfly ? flyspeed : 1.0f)*sprintfactor;
+        const float sprintfactor = sprinting ? 1.5f : (sliding ? 1.4f : 1.0f);
+        const float speed = curtime/(water ? 2000.0f : 1000.0f)*pl->maxspeed*(crouching && pl->state != CS_EDITING && !sliding ? chspeed : 1.0f)*(pl==player1 && isfly ? flyspeed : 1.0f)*sprintfactor;
         const float friction = water ? 20.0f : (pl->onfloor || isfly ? 6.0f : (pl->onladder ? 1.5f : 30.0f));
         const float fpsfric = max(friction/curtime*20.0f, 1.0f);
 
@@ -469,10 +485,20 @@ void moveplayer(physent *pl, int moveres, bool local, int curtime)
 
         float curfullspeed = d.magnitudexy();
 
-        pl->vel.mul(fpsfric-1.0f);   // slowly apply friction and direction to velocity, gives a smooth movement
-        pl->vel.add(d);
-        pl->vel.div(fpsfric);
-        d = pl->vel;
+        if(sliding)
+        {
+            const float slidefriction = powf(0.6f, curtime / 1000.0f);
+            pl->vel.x *= slidefriction;
+            pl->vel.y *= slidefriction;
+            d = pl->vel;
+        }
+        else
+        {
+            pl->vel.mul(fpsfric-1.0f); // slowly apply friction and direction to velocity, gives a smooth movement
+            pl->vel.add(d);
+            pl->vel.div(fpsfric);
+            d = pl->vel;
+        }
         d.mul(speed);
 
         if(editfly)                // just apply velocity
@@ -728,7 +754,12 @@ void moveplayer(physent *pl, int moveres, bool local, int curtime)
                 p->movroll = clamp(p->movroll + pl->strafe * curtime / -30.0f, -p->maxroll, p->maxroll);
             }
             p->effroll /= iir; // fade damage roll
-            pl->roll = p->movroll + p->effroll;
+
+            const float sliderolltarget = p == player1 && p->sliding ? -2.5f : 0.0f;
+            const float sliderollspeed = min(curtime / 300.0f, 1.0f);
+            p->slideroll += (sliderolltarget - p->slideroll) * sliderollspeed;
+
+            pl->roll = p->movroll + p->effroll + p->slideroll;
             if(pl != player1) pl->roll = clamp(pl->roll, (float)-maxrollremote, (float)maxrollremote);
         }
         // smooth pitch
@@ -876,7 +907,7 @@ void updatecrouch(playerent *p, bool on)
     // asymptoptic smoothing of crouch view height (smoother than linear interpolation)
     const float crouchanimspeedscale = 0.9f;
     if (on) {
-        const float croucheyeheight = p->maxeyeheight*3.0f/4.0f;
+        const float croucheyeheight = p->maxeyeheight*(p == player1 && p->sliding ? 0.55f : 0.75f);
         p->eyeheightvel = -abs(p->eyeheight - croucheyeheight) * crouchanimspeedscale;
     } else {
         p->eyeheightvel = abs(p->eyeheight - p->maxeyeheight) * crouchanimspeedscale;
@@ -892,11 +923,17 @@ void crouch(bool on)
 {
     if(player1->isspectating() && on) return;
     player1->trycrouch = on;
+
+    if(!on)
+    {
+        player1->sliding = false;
+        player1->slideused = false;
+    }
 }
 
 void sprint(bool on)
 {
-    player1->sprinting = on && player1->state == CS_ALIVE && !player1->crouching;
+    player1->sprinting = on && player1->state == CS_ALIVE;
 }
 
 COMMAND(backward, "d");

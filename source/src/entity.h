@@ -422,14 +422,15 @@ public:
     int frags, flagscore, deaths, tks;
     int lastaction, lastmove, lastpain, lastvoicecom, lastdeath;
     int clientrole;
-    bool attacking, sprinting;
+    bool attacking, sprinting, sliding, slideused;
+    int slidestart;
     string name;
     int team;
     int weaponchanging;
     int nextweapon; // weapon we switch to
     int spectatemode, followplayercn;
     int eardamagemillis;
-    float maxroll, maxrolleffect, movroll, effroll;  // roll added by movement and damage
+    float maxroll, maxrolleffect, movroll, effroll, slideroll;  // roll added by movement and damage
     int ffov, scopefov;
     bool allowmove() { return (state!=CS_DEAD && state!=CS_SPECTATE) || spectatemode==SM_FLY; }
 
@@ -449,7 +450,7 @@ public:
     bool nocorpse;
 
     playerent() : curskin(0), clientnum(-1), lastupdate(0), plag(0), ping(0), address(0), lifesequence(0), frags(0), flagscore(0), deaths(0), tks(0), lastpain(0), lastvoicecom(0), lastdeath(0), clientrole(CR_DEFAULT), attacking(false), sprinting(false),
-                  team(TEAM_SPECT), spectatemode(SM_NONE), followplayercn(FPCN_VOID), eardamagemillis(0), maxroll(ROLLMOVDEF), maxrolleffect(ROLLEFFDEF), movroll(0), effroll(0), ffov(0), scopefov(0),
+                  sliding(false), slideused(false), slidestart(0), team(TEAM_SPECT), spectatemode(SM_NONE), followplayercn(FPCN_VOID), eardamagemillis(0), maxroll(ROLLMOVDEF), maxrolleffect(ROLLEFFDEF), movroll(0), effroll(0), slideroll(0), ffov(0), scopefov(0),
                   prevweaponsel(NULL), weaponsel(NULL), nextweaponsel(NULL), primweap(NULL), nextprimweap(NULL), lastattackweapon(NULL),
                   smoothmillis(-1),
                   head(-1, -1, -1), ignored(false), muted(false), nocorpse(false)
@@ -513,6 +514,9 @@ public:
         lastattackweapon = NULL;
         attacking = false;
         sprinting = false;
+        sliding = false;
+        slideused = false;
+        slidestart = 0;
         extern int lastmillis;
         weaponchanging = lastmillis - weapons[gunselect]->weaponchangetime/2; // 2011jan16:ft: for a little no-shoot after spawn
         resetspec();
