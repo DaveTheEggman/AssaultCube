@@ -1,0 +1,42 @@
+name: build windows binaries
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'source/**'
+      - '.github/workflows/build-windows.yml'
+  pull_request:
+    paths:
+      - 'source/**'
+      - '.github/workflows/build-windows.yml'
+
+jobs:
+  windows:
+    name: build
+    runs-on: windows-2022
+    steps:
+      - name: checkout
+        uses: actions/checkout@v7
+
+      - name: install Windows XP build tools
+        run: |
+          "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\setup.exe" modify --quiet --productId Microsoft.VisualStudio.Product.Enterprise --channelId VisualStudio.17.Release --add Microsoft.VisualStudio.Component.WinXP
+        shell: cmd
+
+      - name: setup msbuild
+        uses: microsoft/setup-msbuild@v3
+
+      - name: compile client
+        run: msbuild .\source\vcpp\cube.sln /p:Configuration=Release
+        shell: cmd
+
+      - name: compile server
+        run: msbuild .\source\vcpp\cube.sln /p:Configuration=Standalone
+        shell: cmd
+
+      - name: upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-binaries
+          path: bin_win32/ac_*.exe
