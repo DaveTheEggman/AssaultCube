@@ -28,11 +28,11 @@ jobs:
         uses: microsoft/setup-msbuild@v3
 
       - name: compile client
-        run: msbuild .\source\vcpp\cube.sln /p:Configuration=Release
+        run: msbuild .\source\vcpp\assaultcube.sln /p:Configuration=Release
         shell: cmd
 
       - name: compile server
-        run: msbuild .\source\vcpp\cube.sln /p:Configuration=Standalone
+        run: msbuild .\source\vcpp\assaultcube.sln /p:Configuration=Standalone
         shell: cmd
 
       - name: upload artifact
