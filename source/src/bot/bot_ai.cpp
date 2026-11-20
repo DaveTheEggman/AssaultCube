@@ -87,7 +87,6 @@ bool CBot::DetectEnemy(playerent *p)
 
 bool CBot::FindEnemy(void)
 {
-    // UNDONE: Enemies are now only scored on their distance
     if(BotsAgainstHumans())
     {
         m_pMyEnt->enemy = NULL;
@@ -109,78 +108,60 @@ bool CBot::FindEnemy(void)
         {
             if ((m_pMyEnt->enemy->state == CS_ALIVE) && (IsVisible(m_pMyEnt->enemy)))
                 return true;
-            else
-                m_pPrevEnemy = m_pMyEnt->enemy;
+
+            m_pPrevEnemy = m_pMyEnt->enemy;
         }
-        else
-            m_pMyEnt->enemy = NULL;
+
+        m_pMyEnt->enemy = NULL;
     }
 
-    if (m_iEnemySearchDelay > lastmillis) return (m_pMyEnt->enemy!=NULL);
+    if (m_iEnemySearchDelay > lastmillis) return (m_pMyEnt->enemy != NULL);
 
-    m_pMyEnt->enemy = NULL;
-
-    // Add enemy searchy delay
+    // Add enemy search delay
     float MinDelay = m_pBotSkill->flMinEnemySearchDelay;
     float MaxDelay = m_pBotSkill->flMaxEnemySearchDelay;
     m_iEnemySearchDelay = lastmillis + int(RandomFloat(MinDelay, MaxDelay) * 1000.0f);
 
     playerent *pNewEnemy = NULL, *d = NULL;
     float flDist, flNearestDist = 99999.9f;
-    short EnemyVal, BestEnemyVal = -100;
 
-        // First loop through all bots
-        loopv(bots)
+    // First loop through all bots
+    loopv(bots)
+    {
+        d = bots[i]; // Handy shortcut
+
+        if (d == m_pMyEnt || !d || isteam(d->team, m_pMyEnt->team) || (d->state != CS_ALIVE))
+            continue;
+
+        // Check if the enemy is visible
+        if(!DetectEnemy(d))
+            continue;
+
+        flDist = GetDistance(d->o);
+
+        if (!pNewEnemy || (flDist < flNearestDist))
         {
-            d = bots[i]; // Handy shortcut
+            pNewEnemy = d;
+            flNearestDist = flDist;
+        }
+    }
 
-            if (d == m_pMyEnt || !d || isteam(d->team, m_pMyEnt->team) || (d->state != CS_ALIVE))
-                continue;
+    // Then examine the local player
+    if (player1 && !isteam(player1->team, m_pMyEnt->team) &&
+        (player1->state == CS_ALIVE))
+    {
+        // Check if the enemy is visible
+        if(DetectEnemy(player1))
+        {
+            flDist = GetDistance(player1->o);
 
-            // Check if the enemy is visible
-            if(!DetectEnemy(d))
-                continue;
-
-            flDist = GetDistance(d->o);
-            EnemyVal = 1;
-
-            if (flDist < flNearestDist)
+            if (!pNewEnemy || (flDist < flNearestDist))
             {
-                EnemyVal+=2;
+                pNewEnemy = player1;
                 flNearestDist = flDist;
             }
-
-            if (EnemyVal > BestEnemyVal)
-            {
-                pNewEnemy = d;
-                BestEnemyVal = EnemyVal;
-            }
         }
-
-        // Then examine the local player
-        if (player1 && !isteam(player1->team, m_pMyEnt->team) &&
-            (player1->state == CS_ALIVE))
-        {
-            // Check if the enemy is visible
-            if(DetectEnemy(player1))
-            {
-                flDist = GetDistance(player1->o);
-                EnemyVal = 1;
-
-                if (flDist < flNearestDist)
-                {
-                    EnemyVal+=2;
-                    flNearestDist = flDist;
-                }
-
-                if (EnemyVal > BestEnemyVal)
-                {
-                    pNewEnemy = player1;
-                    BestEnemyVal = EnemyVal;
-                }
-            }
-        }
-    //}
+    }
 
     if (pNewEnemy)
     {
@@ -189,8 +170,7 @@ bool CBot::FindEnemy(void)
             float flMinShootDelay = m_pBotSkill->flMinAttackDelay;
             float flMaxShootDelay = m_pBotSkill->flMaxAttackDelay;
 
-            m_iShootDelay = lastmillis + int(RandomFloat(flMinShootDelay,
-                                       flMaxShootDelay) * 1000.0f);
+            m_iShootDelay = lastmillis + int(RandomFloat(flMinShootDelay, flMaxShootDelay) * 1000.0f);
         }
 
         if ((m_pMyEnt->enemy != pNewEnemy) && m_pMyEnt->enemy)
@@ -484,7 +464,7 @@ bool CBot::HuntEnemy(void)
         else if (BestPosIndexFromBot > -1)
         {
             m_vPrevHuntLocation = m_vHuntLocation;
-            m_vHuntLocation = m_pMyEnt->history.getpos(BestPosIndexFromEnemy);
+            m_vHuntLocation = m_pMyEnt->history.getpos(BestPosIndexFromBot);
             bNew = true;
             m_fPrevHuntDist = 0.0f;
         }
@@ -934,7 +914,9 @@ void CBot::DoCombatNav()
         if (AwayDirChoices.GetSelection(iDir))
         {
             m_iMoveDir = iDir;
+            SetMoveDir(iDir, false);
             m_iCombatNavTime = lastmillis + 500;
+            return;
         }
     }
 
@@ -1185,7 +1167,14 @@ void CBot::DoCombatNav()
         end.add(forward);
 
         TraceLine(m_pMyEnt->o, end, m_pMyEnt, true, &tr);
-        StrafeDirChoices.Insert(LEFT, (int)GetDistance(m_pMyEnt->o, tr.end));
+
+        float flLeftDistance = GetDistance(m_pMyEnt->o, tr.end);
+        int iLeftWeight = (flLeftDistance < 1.0f) ? 1 : int(flLeftDistance);
+        if (m_iPreviousStrafeDir == LEFT)
+            iLeftWeight = (iLeftWeight > 2) ? iLeftWeight / 3 : 1;
+
+        if (flLeftDistance > 0.0f)
+            StrafeDirChoices.Insert(LEFT, iLeftWeight);
 
         // Check the right side...
         angles = GetViewAngles();
@@ -1199,14 +1188,27 @@ void CBot::DoCombatNav()
         end.add(forward);
 
         TraceLine(m_pMyEnt->o, end, m_pMyEnt, true, &tr);
-        StrafeDirChoices.Insert(RIGHT, (int)GetDistance(m_pMyEnt->o, tr.end));
+
+        float flRightDistance = GetDistance(m_pMyEnt->o, tr.end);
+        int iRightWeight = (flRightDistance < 1.0f) ? 1 : int(flRightDistance);
+        if (m_iPreviousStrafeDir == RIGHT)
+            iRightWeight = (iRightWeight > 2) ? iRightWeight / 3 : 1;
+
+        if (flRightDistance > 0.0f)
+            StrafeDirChoices.Insert(RIGHT, iRightWeight);
 
         int StrafeDir;
         if (StrafeDirChoices.GetSelection(StrafeDir))
         {
             m_iMoveDir = StrafeDir;
+            m_iPreviousStrafeDir = StrafeDir;
             SetMoveDir(StrafeDir, false);
             m_iCombatNavTime = lastmillis + RandomLong(1500, 3000);
+        }
+        else
+        {
+            ResetMoveSpeed();
+            m_iCombatNavTime = lastmillis + RandomLong(250, 500);
         }
     }
     else // Bot can't circle strafe(low skill), just stand still

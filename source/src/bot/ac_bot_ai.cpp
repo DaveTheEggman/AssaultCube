@@ -44,19 +44,27 @@ bool CACBot::ChoosePreferredWeapon()
         sWeaponScore = 0; // Minimal score for a weapon
         sWeaponScore = i > 1 ? 5 : 0; // Primary are usually better
 
-        if (!m_pMyEnt->mag[i] && WeaponInfoTable[i].eWeaponType != TYPE_MELEE)
+        if (!m_pMyEnt->mag[i] && !m_pMyEnt->ammo[i] && WeaponInfoTable[i].eWeaponType != TYPE_MELEE)
         {
-             continue;
+            continue;
         }
         else
         {
-             sWeaponScore += 5;
+            sWeaponScore += 5;
+        }
+
+        if (WeaponInfoTable[i].eWeaponType != TYPE_MELEE)
+        {
+            if (m_pMyEnt->mag[i] > 0)
+                sWeaponScore += 4; // Prefer weapons that are ready to fire
+            else
+                sWeaponScore -= 4; // Penalize weapons that need reloading
         }
 
         if((flDist >= WeaponInfoTable[i].flMinDesiredDistance) &&
             (flDist <= WeaponInfoTable[i].flMaxDesiredDistance))
         {
-                // In desired range for this weapon
+            // In desired range for this weapon
             sWeaponScore += 5; // Increase score much
 
             if(i == GUN_PISTOL || WeaponInfoTable[i].eWeaponType == TYPE_MELEE)
@@ -77,9 +85,10 @@ bool CACBot::ChoosePreferredWeapon()
             continue; // Wrong distance for this weapon
         }
 
-        if(i == GUN_GRENADE)
+        if(i == GUN_GRENADE && flDist >= WeaponInfoTable[i].flMinDesiredDistance && 
+            flDist <= WeaponInfoTable[i].flMaxDesiredDistance)
         {
-            sWeaponScore += 30; // Nades have high priority
+            sWeaponScore += 5; // Prefer nades when the enemy is at a suitable distance
         }
 
         // The ideal distance would be between the Min and Max desired distance.

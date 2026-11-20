@@ -54,6 +54,7 @@ void CBot::Spawn()
      m_iStuckTime = 0;
      m_iStrafeTime = m_iStrafeCheckDelay = 0;
      m_iMoveDir = DIR_NONE;
+     m_iPreviousStrafeDir = DIR_NONE;
 
      m_pPrevEnemy = NULL;
      m_iCombatNavTime = 0;
@@ -102,6 +103,15 @@ void CBot::Think()
         SendBotInfo();
         return;
     }
+    weapon *grenade = m_pMyEnt->weapons[GUN_GRENADE];
+    if (grenade->busy())
+    {
+        m_pMyEnt->attacking = false;
+
+        vec target = m_pMyEnt->o;
+        grenade->attack(target);
+    }
+
     CheckItemPickup();
     TLinkedList<unreachable_ent_s*>::node_s *p = m_UnreachableEnts.GetFirst(), *tmp;
     while(p)
@@ -359,14 +369,14 @@ void CBot::SetMoveDir(int iMoveDir, bool add)
 {
      if (iMoveDir & FORWARD)
           m_pMyEnt->move = 1;
-     else if (m_iMoveDir & BACKWARD)
+     else if (iMoveDir & BACKWARD)
           m_pMyEnt->move = -1;
      else if (!add)
           m_pMyEnt->move = 0;
 
      if (iMoveDir & LEFT)
           m_pMyEnt->strafe = 1;
-     else if (m_iMoveDir & RIGHT)
+     else if (iMoveDir & RIGHT)
           m_pMyEnt->strafe = -1;
      else if (!add)
           m_pMyEnt->strafe = 0;
