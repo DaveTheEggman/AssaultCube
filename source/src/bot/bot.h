@@ -179,6 +179,7 @@ public:
      int m_iStrafeTime;
      int m_iStrafeCheckDelay;
      int m_iMoveDir;
+     int m_iPreviousStrafeDir;
      int m_iSPMoveTime;
      bool m_bCalculatingAStarPath;
      TLinkedList<waypoint_s *> m_AStarNodeList;

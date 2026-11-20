@@ -204,7 +204,7 @@ public:
     virtual ~dynent() {}
 };
 
-#define MAXNAMELEN 15
+#define MAXNAMELEN 20
 
 class bounceent;
 
