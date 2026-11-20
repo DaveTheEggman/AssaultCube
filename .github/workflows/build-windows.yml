@@ -19,20 +19,25 @@ jobs:
       - name: checkout
         uses: actions/checkout@v7
 
-      - name: install Windows XP build tools
+      - name: install Windows XP build tools & Clang
         run: |
-          "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\setup.exe" modify --quiet --productId Microsoft.VisualStudio.Product.Enterprise --channelId VisualStudio.17.Release --add Microsoft.VisualStudio.Component.WinXP
+          "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\setup.exe" modify --quiet --norestart --installPath "C:\Program Files\Microsoft Visual Studio\2022\Enterprise" --add Microsoft.VisualStudio.Component.WinXP --add Microsoft.VisualStudio.Component.VC.Llvm.Clang --add Microsoft.VisualStudio.Component.VC.Llvm.ClangToolset
+          if errorlevel 1 exit /b %errorlevel%
         shell: cmd
 
       - name: setup msbuild
         uses: microsoft/setup-msbuild@v3
 
+      - name: verify clang
+        run: clang-cl --version
+        shell: cmd
+
       - name: compile client
-        run: msbuild .\source\vcpp\assaultcube.sln /p:Configuration=Release
+        run: msbuild .\source\vcpp\assaultcube.sln /p:Configuration=Release /p:CLToolPath="C:\Program Files\LLVM\bin" /p:CLToolExe=clang-cl.exe
         shell: cmd
 
       - name: compile server
-        run: msbuild .\source\vcpp\assaultcube.sln /p:Configuration=Standalone
+        run: msbuild .\source\vcpp\assaultcube.sln /p:Configuration=Standalone /p:CLToolPath="C:\Program Files\LLVM\bin" /p:CLToolExe=clang-cl.exe
         shell: cmd
 
       - name: upload artifact
