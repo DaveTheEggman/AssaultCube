@@ -55,9 +55,18 @@ endif
 
 MV=mv
 ifneq (,$(findstring MINGW,$(PLATFORM)))
+ifeq ($(WINDOWS64),yes)
+WINDRES= llvm-windres
+else
 WINDRES= windres
+endif
+ifeq ($(WINDOWS64),yes)
+CLIENT_INCLUDES= $(INCLUDES) -I/clang64/include/SDL2 -I/clang64/include -I../include
+CLIENT_LIBS= -mwindows -L/clang64/lib -L../enet/.libs -lSDL2main -lSDL2 -lSDL2_image -lopenal -lopengl32 -lenet -lvorbisfile -lvorbis -logg -lws2_32 -lwinmm -lz
+else
 CLIENT_INCLUDES= $(INCLUDES) -I../include
 CLIENT_LIBS= -mwindows -L../lib -lSDL2 -lSDL2_image -lzdll -lopengl32 -lenet -lOpenAL32 -llibvorbisfile -lws2_32 -lwinmm
+endif
 else
 USRLIB=$(shell if [ -e /usr/lib64 ]; then echo "/usr/lib64"; else echo "/usr/lib"; fi)
 CLIENT_INCLUDES= $(INCLUDES) -I/usr/include `sdl2-config --cflags` -idirafter ../include
@@ -122,8 +131,13 @@ CLIENT_OBJS= \
 CLIENT_PCH= cube.h.gch
 
 ifneq (,$(findstring MINGW,$(PLATFORM)))
+ifeq ($(WINDOWS64),yes)
+SERVER_INCLUDES= -DSTANDALONE $(INCLUDES) -I/clang64/include -I../include
+SERVER_LIBS= -L/clang64/lib -L../enet/.libs -lenet -lSDL2 -lz -lws2_32 -lwinmm
+else
 SERVER_INCLUDES= -DSTANDALONE $(INCLUDES) -I../include
 SERVER_LIBS= -L../lib -lzdll -lenet -lws2_32 -lwinmm
+endif
 else
 SERVER_INCLUDES= -DSTANDALONE $(INCLUDES)
 SERVER_LIBS= -L../enet/.libs -lenet -lz -lpthread
@@ -156,10 +170,14 @@ default: all
 all: client server
 
 ../enet/Makefile:
+ifeq (,$(findstring MINGW,$(PLATFORM)))
 	cd ../enet; ./configure --enable-shared=no --enable-static=yes
+else
+	cd ../enet; CC=clang ./configure --enable-shared=no --enable-static=yes
+endif
 
 libenet: ../enet/Makefile
-	-$(MAKE) -C ../enet all
+	$(MAKE) -C ../enet all
 
 clean-enet: ../enet/Makefile
 	$(MAKE) -C ../enet/ clean
@@ -187,15 +205,23 @@ $(SERVER_OBJS): CXXFLAGS += $(SERVER_INCLUDES)
 $(filter-out $(SERVER_OBJS),$(MASTER_OBJS)): CXXFLAGS += $(SERVER_INCLUDES)
 
 ifneq (,$(findstring MINGW,$(PLATFORM)))
-client: $(CLIENT_OBJS)
+ifeq ($(WINDOWS64),yes)
+WINDOWS_BIN_DIR=../../bin_win64
+else
+WINDOWS_BIN_DIR=../../bin_win32
+endif
+
+client: libenet $(CLIENT_OBJS)
 	$(WINDRES) -I ../vcpp -i ../vcpp/assaultcube.rc -J rc -o ../vcpp/assaultcube.res -O coff
-	$(CXX) $(CXXFLAGS) -o ../../bin_win32/ac_client.exe ../vcpp/assaultcube.res $(CLIENT_OBJS) $(CLIENT_LIBS)
+	mkdir -p $(WINDOWS_BIN_DIR)
+	$(CXX) $(CXXFLAGS) -o $(WINDOWS_BIN_DIR)/ac_client.exe ../vcpp/assaultcube.res $(CLIENT_OBJS) $(CLIENT_LIBS)
 
-server: $(SERVER_OBJS)
-	$(CXX) $(CXXFLAGS) -o ../../bin_win32/ac_server.exe $(SERVER_OBJS) $(SERVER_LIBS)
+server: libenet $(SERVER_OBJS)
+	mkdir -p $(WINDOWS_BIN_DIR)
+	$(CXX) $(CXXFLAGS) -o $(WINDOWS_BIN_DIR)/ac_server.exe $(SERVER_OBJS) $(SERVER_LIBS)
 
-master: $(MASTER_OBJS)
-	$(CXX) $(CXXFLAGS) -o ../../bin_win32/ac_master.exe $(MASTER_OBJS) $(SERVER_LIBS)
+master: libenet $(MASTER_OBJS)
+	$(CXX) $(CXXFLAGS) -o $(WINDOWS_BIN_DIR)/ac_master.exe $(MASTER_OBJS) $(SERVER_LIBS)
 
 client_install: client
 server_install: server

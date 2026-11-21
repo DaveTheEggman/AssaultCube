@@ -1,0 +1,83 @@
+name: build windows64 binaries
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'source/**'
+      - '.github/workflows/build-windows64.yml'
+  pull_request:
+    paths:
+      - 'source/**'
+      - '.github/workflows/build-windows64.yml'
+
+jobs:
+  windows64:
+    name: build
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: configure git line endings
+        run: git config --global core.autocrlf input
+        shell: pwsh
+
+      - name: checkout
+        uses: actions/checkout@v7
+
+      - name: setup msys2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: CLANG64
+          update: true
+          install: >-
+            make
+            mingw-w64-clang-x86_64-clang
+            mingw-w64-clang-x86_64-llvm-tools
+            mingw-w64-clang-x86_64-SDL2
+            mingw-w64-clang-x86_64-sdl2-image
+            mingw-w64-clang-x86_64-openal
+            mingw-w64-clang-x86_64-libogg
+            mingw-w64-clang-x86_64-libvorbis
+            mingw-w64-clang-x86_64-zlib
+            mingw-w64-clang-x86_64-ntldd
+
+      - name: prepare production build
+        run: sed -i 's@^//#define PRODUCTION$@#define PRODUCTION@' source/src/cube.h
+
+      - name: make
+        run: |
+          cd source/src
+          make clean
+          make -j"$(nproc)" PLATFORM=MINGW64 WINDOWS64=yes CXX=clang++ client server
+
+      - name: prepare artifact
+        run: |
+          mkdir -p dist
+          cp bin_win64/ac_client.exe dist/
+          cp bin_win64/ac_server.exe dist/
+
+          for exe in dist/*.exe; do
+            ntldd -R "$exe" | while IFS= read -r line; do
+              dll=$(printf '%s\n' "$line" | sed -nE 's/.*=>[[:space:]]*([^[:space:]]+\.dll).*/\1/p')
+              [ -n "$dll" ] || continue
+
+              dll=$(cygpath -u "$dll")
+
+              case "$dll" in
+                /clang64/bin/*.dll)
+                  cp -n "$dll" dist/
+                  ;;
+              esac
+            done
+          done
+
+          echo "AssaultCube Windows x64 binaries. Place the DLL files beside the executables." > dist/README.txt
+
+      - name: upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows64-binaries
+          path: dist/
