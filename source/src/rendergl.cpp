@@ -482,13 +482,18 @@ void fovchanged()
 
 float dynfov()
 {
-    bool isscoped = player1->weaponsel->type == GUN_SNIPER && ((sniperrifle *)player1->weaponsel)->scoped;
-    bool useremote = spectfovremote && camera1 != player1 && camera1->type == ENT_PLAYER && ((playerent *)camera1)->ffov && ((playerent *)camera1)->scopefov;
-    if(camera1 != player1 && camera1->type < ENT_CAMERA) isscoped = ((playerent *)camera1)->scoping;
+    playerent *camplayer = camera1 != player1 && camera1->type < ENT_CAMERA ? (playerent *)camera1 : player1;
+    bool isscoped = camplayer->scoping;
+    bool useremote = spectfovremote && camplayer != player1 && camplayer->ffov && camplayer->scopefov;
 
     float resultfov = 90.0f;
-    if(isscoped) resultfov = (float) (useremote ? ((playerent *)camera1)->scopefov : scopefov);
-    else if(player1->isspectating()) resultfov = (float)(useremote ? ((playerent *)camera1)->ffov : spectfov);
+
+    if(isscoped)
+    {
+        if(useremote) resultfov = (float)((playerent *)camera1)->scopefov;
+        else resultfov = (float)((gun *)player1->weaponsel)->scopefov();
+    }
+    else if(player1->isspectating()) resultfov = (float)(useremote ? camplayer->ffov : spectfov);
     else resultfov = (float)fov;
 
     // automatic FOV adjustment for wide screens

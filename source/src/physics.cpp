@@ -487,7 +487,7 @@ void moveplayer(physent *pl, int moveres, bool local, int curtime)
 
         if(sliding)
         {
-            const float slidefriction = powf(0.6f, curtime / 1000.0f);
+            const float slidefriction = powf(0.6f, curtime / 2000.0f);
             pl->vel.x *= slidefriction;
             pl->vel.y *= slidefriction;
             d = pl->vel;
@@ -756,7 +756,7 @@ void moveplayer(physent *pl, int moveres, bool local, int curtime)
             p->effroll /= iir; // fade damage roll
 
             const float sliderolltarget = p == player1 && p->sliding ? -2.5f : 0.0f;
-            const float sliderollspeed = min(curtime / 300.0f, 1.0f);
+            const float sliderollspeed = min(curtime / 500.0f, 1.0f);
             p->slideroll += (sliderolltarget - p->slideroll) * sliderollspeed;
 
             pl->roll = p->movroll + p->effroll + p->slideroll;
@@ -968,7 +968,7 @@ FVARP(mfilter, 0.0f, 0.0f, 6.0f);               // simple lowpass filtering (zer
 void mousemove(int idx, int idy)
 {
     if(intermission || ispaused || (player1->isspectating() && (player1->spectatemode==SM_FOLLOW1ST||player1->spectatemode==SM_OVERVIEW))) return;
-    bool zooming = player1->weaponsel->type == GUN_SNIPER && ((sniperrifle *)player1->weaponsel)->scoped;               // check if player uses scope
+    bool zooming = player1->scoping;
     float dx = idx, dy = idy;
     if(mfilter > 0.0001f)
     { // simple IIR-like filter (1st order lowpass)

@@ -1050,6 +1050,16 @@ void weapon::renderhudmodel(int lastaction, int index)
 
     weaponmove wm;
     if(!intermission || !ispaused) wm.calcmove(unitv, lastaction, p);
+
+    if(p->scoping && (type == GUN_ASSAULT || type == GUN_CARBINE || type == GUN_SUBGUN))
+    {
+        float yaw = RAD*(p->yaw-90);
+
+        wm.pos.x -= cosf(yaw)*0.3f;
+        wm.pos.y -= sinf(yaw)*0.3f;
+        wm.pos.z += 0.25f;
+    }
+
     defformatstring(path)("weapons/%s", info.modelname);
     bool emit = (wm.anim&ANIM_INDEX)==ANIM_GUN_SHOOT && (lastmillis - lastaction) < flashtime();
     rendermodel(path, wm.anim|ANIM_DYNALLOC|(righthanded==index ? ANIM_MIRROR : 0)|(emit ? ANIM_PARTICLE : 0), 0, -1, wm.pos, 0, p->yaw+90, p->pitch+wm.k_rot, 40.0f, wm.basetime, NULL, NULL, 1.28f);
@@ -1371,7 +1381,35 @@ void grenades::removebounceent(bounceent *b)
 
 // gun base class
 
-gun::gun(playerent *owner, int type) : weapon(owner, type) {}
+gun::gun(playerent *owner, int type) : weapon(owner, type), scoped(false), scoped_since(0) {}
+
+bool gun::canscope() const
+{
+    return type == GUN_SNIPER || type == GUN_ASSAULT || type == GUN_CARBINE || type == GUN_SUBGUN;
+}
+
+int gun::scopefov() const
+{
+    switch(type)
+    {
+        case GUN_SNIPER: return 50;
+        case GUN_ASSAULT: return 65;
+        case GUN_CARBINE: return 65;
+        case GUN_SUBGUN: return 70;
+        default: return owner->scopefov;
+    }
+}
+
+int gun::scopesettletime() const { return 180; }
+
+void gun::setscope(bool enable)
+{
+    if(!canscope() || this != owner->weaponsel || reloading || owner->state != CS_ALIVE) return;
+
+    if(!scoped && enable) scoped_since = lastmillis;
+    owner->scoping = enable;
+    scoped = enable;
+}
 
 bool gun::attack(vec &targ)
 {
@@ -1438,10 +1476,42 @@ void gun::attackfx(const vec &from, const vec &to, int millis)
     attacksound();
 }
 
+bool gun::reload(bool autoreloaded)
+{
+    bool r = weapon::reload(autoreloaded);
+    if(r)
+    {
+        scoped = false;
+        owner->scoping = false;
+    }
+    return r;
+}
+
 int gun::modelanim() { return modelattacking() ? ANIM_GUN_SHOOT|ANIM_LOOP : ANIM_GUN_IDLE; }
 void gun::checkautoreload() { if(autoreload && owner==player1 && !mag) reload(true); }
-void gun::onownerdies() { shots = 0; }
 
+void gun::onownerdies()
+{
+    shots = 0;
+    scoped = false;
+    owner->scoping = false;
+}
+
+void gun::renderhudmodel() { weapon::renderhudmodel(); }
+
+void gun::renderaimhelp(bool teamwarning)
+{
+    if(!editmode)
+    {
+        if(scoped || teamwarning)
+        {
+            if(type == GUN_SNIPER) drawscope();
+            drawcrosshair(owner, teamwarning ? CROSSHAIR_TEAMMATE : (scoped && type == GUN_SNIPER ? CROSSHAIR_SCOPE : type), NULL, scoped ? 30.0f : -1.0f);
+        }
+        else drawcrosshair(owner, type);
+    }
+    else drawcrosshair(owner, CROSSHAIR_EDIT);
+}
 
 // shotgun
 
@@ -1480,7 +1550,7 @@ int subgun::dynspread() { return shots > 2 ? 70 : ( info.spread + ( shots > 0 ? 
 
 // sniperrifle
 
-sniperrifle::sniperrifle(playerent *owner) : gun(owner, GUN_SNIPER), scoped(false) {}
+sniperrifle::sniperrifle(playerent *owner) : gun(owner, GUN_SNIPER) {}
 
 void sniperrifle::attackfx(const vec &from, const vec &to, int millis)
 {
@@ -1495,31 +1565,23 @@ void sniperrifle::attackfx(const vec &from, const vec &to, int millis)
     attacksound();
 }
 
-bool sniperrifle::reload(bool autoreloaded)
-{
-    bool r = weapon::reload(autoreloaded);
-    if(owner==player1 && r) { scoped = false; player1->scoping = false; }
-    return r;
-}
-
-#define SCOPESETTLETIME 180
 int sniperrifle::dynspread()
 {
     if(scoped)
     {
         int scopetime = lastmillis - scoped_since;
-        if(scopetime > SCOPESETTLETIME)
+        if(scopetime > scopesettletime())
             return 1;
         else
-            return max((info.spread * (SCOPESETTLETIME - scopetime)) / SCOPESETTLETIME, 1);
+            return max((info.spread * (scopesettletime() - scopetime)) / scopesettletime(), 1);
     }
     return info.spread;
 }
-float sniperrifle::dynrecoil() { return scoped && lastmillis - scoped_since > SCOPESETTLETIME ? info.recoil / 3 : info.recoil; }
+
+float sniperrifle::dynrecoil() { return scoped && lastmillis - scoped_since > scopesettletime() ? info.recoil / 3 : info.recoil; }
 bool sniperrifle::selectable() { return weapon::selectable() && !m_noprimary && this == owner->primweap; }
-void sniperrifle::onselecting(bool sound) { weapon::onselecting(sound); scoped = false; player1->scoping = false; }
+void sniperrifle::onselecting(bool sound) { weapon::onselecting(sound); scoped = false; owner->scoping = false; }
 void sniperrifle::ondeselecting() { scoped = false; owner->scoping = false; }
-void sniperrifle::onownerdies() { shots = 0; scoped = false; owner->scoping = false; }
 void sniperrifle::renderhudmodel() { if(!scoped) weapon::renderhudmodel(); }
 
 void sniperrifle::renderaimhelp(bool teamwarning)
@@ -1530,16 +1592,6 @@ void sniperrifle::renderaimhelp(bool teamwarning)
         if(scoped || teamwarning) drawcrosshair(owner, teamwarning ? CROSSHAIR_TEAMMATE : CROSSHAIR_SCOPE, NULL, 24.0f);
     }
     else drawcrosshair(owner, CROSSHAIR_EDIT);
-}
-
-void sniperrifle::setscope(bool enable)
-{
-    if(this == owner->weaponsel && !reloading && owner->state == CS_ALIVE)
-    {
-        if(scoped == false && enable == true) scoped_since = lastmillis;
-        if(enable != scoped) owner->scoping = enable;
-        scoped = enable;
-    }
 }
 
 // carbine
@@ -1660,12 +1712,23 @@ void knife::drawstats() {}
 void knife::attackfx(const vec &from, const vec &to, int millis) { attacksound(); }
 void knife::renderstats() { }
 
-
 void setscope(bool enable)
 {
-    if(player1->weaponsel->type != GUN_SNIPER) return;
-    sniperrifle *sr = (sniperrifle *)player1->weaponsel;
-    sr->setscope(enable);
+    gun *g = NULL;
+
+    switch(player1->weaponsel->type)
+    {
+        case GUN_SNIPER:
+        case GUN_ASSAULT:
+        case GUN_CARBINE:
+        case GUN_SUBGUN:
+            g = (gun *)player1->weaponsel;
+            break;
+        default:
+            return;
+    }
+
+    g->setscope(enable);
 }
 
 COMMANDF(setscope, "i", (int *on) { setscope(*on != 0); });

@@ -78,17 +78,27 @@ struct grenades : weapon
     int flashtime() const;
 };
 
-
 struct gun : weapon
 {
+    bool scoped;
+    int scoped_since;
+
     gun(playerent *owner, int type);
     virtual bool attack(vec &targ);
     virtual void attackfx(const vec &from, const vec &to, int millis);
+    virtual bool reload(bool autoreloaded);
     int modelanim();
     void checkautoreload();
     void onownerdies();
-};
 
+    virtual bool canscope() const;
+    virtual int scopefov() const;
+    virtual int scopesettletime() const;
+    virtual void setscope(bool enable);
+
+    void renderhudmodel();
+    void renderaimhelp(bool teamwarning);
+};
 
 struct subgun : gun
 {
@@ -100,22 +110,16 @@ struct subgun : gun
 
 struct sniperrifle : gun
 {
-    bool scoped;
-    int scoped_since;
-
     sniperrifle(playerent *owner);
     void attackfx(const vec &from, const vec &to, int millis);
-    bool reload(bool autoreloaded);
 
     int dynspread();
     float dynrecoil();
     bool selectable();
     void onselecting(bool sound);
     void ondeselecting();
-    void onownerdies();
     void renderhudmodel();
     void renderaimhelp(bool teamwarning);
-    void setscope(bool enable);
 };
 
 
